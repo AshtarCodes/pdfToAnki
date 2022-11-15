@@ -20,7 +20,7 @@ if (args.help || process.argv.length <= 2) {
 		if (err) error(err.toString());
 		else processFile(contents).then((questions) => {
             // const notes = toAnkiNotesFormat(questions,args.deckName)
-            // console.log('after processing: ',notes[5])
+            // console.log('after processing: ',notes[0])
             return postToAnki(questions, args);
         }).catch(err => console.error(err));
 	});
@@ -56,15 +56,15 @@ async function postToAnki(questions, args){
     const {result: profileResult} = await makeRequest('POST', {action: "getProfiles", version });
     const profileToLoad = profileResult.length <= 1 ? profileResult[0] : args.profile && profileResult.find(res => res.toLowerCase() === args.profile.toLowerCase());
     const {result: loadProfileResult} = await makeRequest('POST', {action: 'loadProfile', version, params: {name: profileToLoad}});
-    const {result: syncResult} = await makeRequest('POST', {action: 'sync', version});
+    // const {result: syncResult} = await makeRequest('POST', {action: 'sync', version});
     const notes = toAnkiNotesFormat(questions, deckName);
     const {result: existingDecksResult} = await makeRequest('POST', {action: 'deckNames', version});
     if (!existingDecksResult.includes(deckName)){
         const {result: createDeckResult} = await makeRequest('POST', {action: 'createDeck', version, params: { deck: deckName}});
     }
     const {result: createNoteResult} = await makeRequest('POST', {action: 'addNotes', version, params: { notes: notes}});
+    const {result: finalSyncResult} = await makeRequest('POST', {action: 'sync', version});
     console.log(createNoteResult);
-    // TODO: sync
 }
 
 function createAnkiNoteTemplate({question: questionObj, deckName, tags}) {
@@ -132,7 +132,10 @@ function isIncremental(str, format) {
 }
 
 function isQuestion(line) {
-    return isIncremental(null, 2).find(matcher => line.startsWith(matcher));
+    // match 3. or 3.A , but not 3.8
+    line = line.trim();
+    const isQ = /^[0-9]{1,2}(?=[.])(?!.[0-9])/.test(line);
+    return isQ ? line[0] : null;
 }
 
 function processFile(dataBuffer) {
@@ -164,10 +167,15 @@ function processFile(dataBuffer) {
                     // Chapter 30:
                     return false;
                 } else if (/(?=.*:)/.test(x)) {
+                    x = x.trim();
                     // ${word}:
-                    if (x.trim().startsWith('Feedback:') ||
-                        x.trim().toLowerCase().startsWith('answer:') ||
-                        x.trim().toLowerCase().startsWith('ans:')) {
+                    if (x.startsWith('Feedback:') ||
+                        x.startsWith('Rationale:') ||
+                        x.toLowerCase().startsWith('answer:') ||
+                        x.toLowerCase().startsWith('ans:') ||
+                        x.startsWith('Question format:') ||
+                        x.startsWith('Format:')
+                        ) {
                         return true
                     };
                     return false
@@ -182,7 +190,7 @@ function processFile(dataBuffer) {
                 if (isQ) {
                     currentQuestion = Number(isQ?.replace('.', ''));
                     level = 'question';
-                    questionObject = {questionNum: currentQuestion, question: '', choices: {}, answer: '', feedback: '' };
+                    questionObject = {questionNum: currentQuestion, question: '', choices: {}, answer: '', answerExtra: '', feedback: '' };
                     acc.push(questionObject);
                 }
                 // parse question, choices, answers, and feedback
@@ -203,11 +211,12 @@ function processFile(dataBuffer) {
 function processQuestion({line, currentLevel, questionObject, currentChoice}){
     line = line.trim();
     const isAQuestion = isQuestion(line) && 'question';
-    const isChoice = /(?=[A-Z]\))/.test(line) && 'choice';
+    const isChoice = /^[A-Z](?=[).])/.test(line) && 'choice';
     const isAnswer = (line.startsWith('Ans:') || line.startsWith('Answer:')) && 'answer';
-    const isFeedback = line.startsWith('Feedback:') && 'feedback';
-    if (isAQuestion || isChoice || isAnswer || isFeedback) {
-        currentLevel = isAQuestion || isChoice || isAnswer || isFeedback;
+    const isFeedback = (line.startsWith('Feedback:') || line.startsWith('Rationale:')) && 'feedback';
+    const isEndOfFeedback = line.startsWith('Question format:') || line.startsWith('Format:');
+    if (isAQuestion || isChoice || isAnswer || isFeedback || isEndOfFeedback) {
+        currentLevel = isAQuestion || isChoice || isAnswer || isFeedback || isEndOfFeedback;
     }
 
     if (currentLevel === 'question') {
@@ -231,10 +240,10 @@ function processQuestion({line, currentLevel, questionObject, currentChoice}){
                 expandedAnswers += `\n${choices[ans]}`;
             }
         });
-        questionObject.answerExtra = expandedAnswers;
+        questionObject.answerExtra += expandedAnswers;
     }
     else if (currentLevel === 'feedback') {
-        questionObject.feedback += `${line} `;
+            questionObject.feedback += `${line} `;
     }
     return {currentLevel, currentChoice};
 }
