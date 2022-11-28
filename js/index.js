@@ -20,6 +20,7 @@ if (args.help || process.argv.length <= 2) {
 		if (err) error(err.toString());
 		else processFile(contents).then((questions) => {
             // const notes = toAnkiNotesFormat(questions,args.deckName)
+            // fs.writeFile(path.join(__dirname, `Chapter ${args.chapter}.json`), JSON.stringify(questions, null, 4), (err) => console.log(err))
             // console.log('after processing: ',notes[0])
             return postToAnki(questions, args);
         }).catch(err => console.error(err));
@@ -134,8 +135,10 @@ function isIncremental(str, format) {
 function isQuestion(line) {
     // match 3. or 3.A , but not 3.8
     line = line.trim();
-    const isQ = /^[0-9]{1,2}(?=[.])(?!.[0-9])/.test(line);
-    return isQ ? line[0] : null;
+    const regex = /^[0-9]{1,2}(?=[.])(?!.[0-9])/;
+    const isQ = regex.test(line);
+    const result = isQ ? line.match(regex)[0] : null;
+    return result;
 }
 
 function processFile(dataBuffer) {
@@ -146,10 +149,11 @@ function processFile(dataBuffer) {
             let phraseFound = false; 
             let firstPass = []
             for (let line of rawText) { 
-                if (line.includes(`Chapter ${args.chapter}`)) {
+                line = line.trim();
+                if (line === `Chapter ${args.chapter}`) {
                     phraseFound = true
                 }
-                if (line.includes(`Chapter ${+args.chapter + 1}`)) {
+                if (line === `Chapter ${+args.chapter + 1}`) {
                     phraseFound = false
                 }
                 if (phraseFound) {
@@ -170,15 +174,19 @@ function processFile(dataBuffer) {
                     x = x.trim();
                     // ${word}:
                     if (x.startsWith('Feedback:') ||
-                        x.startsWith('Rationale:') ||
-                        x.toLowerCase().startsWith('answer:') ||
-                        x.toLowerCase().startsWith('ans:') ||
-                        x.startsWith('Question format:') ||
-                        x.startsWith('Format:')
-                        ) {
+                    x.startsWith('Rationale:') ||
+                    x.toLowerCase().startsWith('answer:') ||
+                    x.toLowerCase().startsWith('ans:') ||
+                    x.startsWith('Question format:') ||
+                    x.startsWith('Format:')
+                    ) {
                         return true
                     };
-                    return false
+                    const phrasesToRemove = ['Cognitive Level:', 'Client Needs:', 'Integrated Process:', 'Reference:','Page and Header:',]
+                    if (phrasesToRemove.some(y => x.startsWith(y))) {
+                        return false;
+                    }
+                    return true
                 }
                 return true;
             });
