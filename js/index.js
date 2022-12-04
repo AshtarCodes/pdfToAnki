@@ -135,7 +135,7 @@ function isIncremental(str, format) {
 function isQuestion(line) {
     // match 3. or 3.A , but not 3.8
     line = line.trim();
-    const regex = /^[0-9]{1,2}(?=[.])(?!.[0-9])/;
+    const regex = /^[0-9]{1,2}(?=[.])(?!\.[0-9a-z])/i;
     const isQ = regex.test(line);
     const result = isQ ? line.match(regex)[0] : null;
     return result;
@@ -150,6 +150,9 @@ function processFile(dataBuffer) {
             let firstPass = []
             for (let line of rawText) { 
                 line = line.trim();
+                if (args.chapter === 'all') {
+                    phraseFound = true;
+                }
                 if (line === `Chapter ${args.chapter}`) {
                     phraseFound = true
                 }
