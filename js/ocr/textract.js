@@ -41,7 +41,7 @@ async function analyzeImage(imagePath) {
 
     // Extract table data
     const tables = blocks.filter((block) => block.BlockType === "TABLE");
-    console.log("Detected Tables:", tables);
+    console.log("Detected Tables:", tables?.length);
 
     return { detectedText };
   } catch (err) {

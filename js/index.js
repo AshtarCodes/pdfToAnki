@@ -10,6 +10,7 @@ const axios = require("axios");
 // require("core-js/proposals/string-replace-all-stage-4");
 const minimist = require("minimist");
 const { analyzeImage } = require("./ocr/textract.js");
+const { generateStructuredOutput } = require("./openai.js");
 
 const args = minimist(process.argv.slice(2), {
   boolean: ["help"],
@@ -39,10 +40,13 @@ if (args.help || process.argv.length <= 2) {
 } else if (args.directory /*deckname*/) {
   const directoryPath = path.resolve(BASEPATH, args.directory);
   const images = getImages(directoryPath);
-  if (!images?.length) {
+  //TODO: fix this if check
+  if (!images?.[5]) {
     error("No images found in the directory.");
+    return;
   }
-  // console.log(images);
+  const singleImage = images[16];
+  // console.log(singleImage);
   // analyzeImage(images[16].path)
   //   .catch(() => {
   //     terminateWorker();
@@ -53,7 +57,7 @@ if (args.help || process.argv.length <= 2) {
   // TODO: analyze an image, then send the text in prompt to LLM
   // analyzeImage(images[16].path);
 
-  generateFlashCards([images[16]]);
+  generateFlashCards([singleImage]);
 } else {
   error("Usage incorrect.", /*showHelp=*/ true);
 }
@@ -75,8 +79,24 @@ async function generateFlashCards(images) {
       detectedText,
       systemPrompt
     );
-    console.log({ slide, text, completion });
+    console.log({
+      slide,
+      detectedText,
+      completion: completion.choices[0]?.message,
+      usage: completion?.usage?.total_tokens,
+    });
+    writeToFile(JSON.stringify(completion.choices), `Slide${slide}.json`);
   }
+}
+
+function writeToFile(data, fileName) {
+  // write the data to a file even if the file does not exist, create it
+  fs.writeFile(fileName, data, (err) => {
+    if (err) {
+      error(err);
+      return;
+    }
+  });
 }
 
 async function makeRequest(method, body) {

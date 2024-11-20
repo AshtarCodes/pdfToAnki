@@ -1,7 +1,7 @@
 const OpenAI = require("openai");
 require("dotenv").config();
-import { z } from "zod";
-import { zodResponseFormat } from "openai/helpers/zod";
+const { z } = require("zod");
+const { zodResponseFormat } = require("openai/helpers/zod");
 
 // const { OpenAI } = require("openai");
 
@@ -85,6 +85,8 @@ const FlashcardExtraction = z.object({
   back: z.string(),
   category: z.array(z.string()),
 });
+
+// console.log(FlashcardExtraction);
 
 async function generateStructuredOutput(userPrompt, systemPrompt) {
   const openai = new OpenAI();

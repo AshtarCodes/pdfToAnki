@@ -12,6 +12,7 @@
 
 const fs = require("fs");
 const path = require("path");
+const error = require("./utils/cli.js").error;
 const NOTE_TYPE = "Basic";
 const questionObject = {
   slide: 0,
@@ -26,7 +27,16 @@ function formFlashcards(directoryPath) {
 
 // read image files from a directory provided via the command line
 exports.getImages = function getImages(imageDirPath) {
+  if (!fs.existsSync(imageDirPath)) {
+    error(`The provided path does not exist: ${imageDirPath}`);
+    return;
+  }
   const images = fs.readdirSync(imageDirPath);
+  if (!images.length) {
+    // TODO: probably need to check files are actually images and filter for them
+    error(`No image files found in the provided directory: ${imageDirPath}`);
+    return;
+  }
   const result = images.reduce((acc, image) => {
     // return an object with the image name and the path to the image, and the slide number. The image name is like so Slide10.png
     const match = image.match(/\d+/)?.[0];

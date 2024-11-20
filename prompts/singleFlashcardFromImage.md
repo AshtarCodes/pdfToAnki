@@ -1,6 +1,6 @@
 You are tasked with analyzing and summarizing a medical text to create flashcards for a nursing student whose first language is not English. The goal is to generate clear, categorized flashcards that aid learning, and to make the information clear and easy to understand while preserving critical medical terminology to help them recognize and learn these terms. Follow these steps to create a structured response:
 
-1. **Category**: Identify the topic or section (optional) to organize the flashcards by theme.
+1. **Category**: Identify the topic or section (optional) to organize the flashcards by theme. Only provide one category ever.
 2. **Front (Question)**:
    - Create a clear question or prompt based on the text.
    - It should summarize the main concept in a way that challenges the student to recall or understand the information.
