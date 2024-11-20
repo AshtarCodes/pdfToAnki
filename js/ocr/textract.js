@@ -11,7 +11,7 @@ const client = new TextractClient({
 });
 const error = require("../utils/cli.js").error;
 // console.log({ client });
-const analyzeImage = async (imagePath) => {
+async function analyzeImage(imagePath) {
   try {
     // Read image as binary data
     const imageBytes = fs.readFileSync(imagePath);
@@ -44,11 +44,12 @@ const analyzeImage = async (imagePath) => {
     console.log("Detected Tables:", tables);
 
     return { detectedText };
-  } catch (error) {
-    error("Error:", error);
-    throw error;
+  } catch (err) {
+    error("Error:", err);
+    return;
+    // throw err;
   }
-};
+}
 
 // const p = "C:/Users/ashta/Downloads/MONTEFIORE/ABG-images/Slide33.jpg";
 // Provide the path to your image
