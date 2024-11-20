@@ -1,14 +1,23 @@
 #!/usr/bin/env node
+// import { getImages } from "./screenshot.js";
+// import error from ./utils/cli.js using cjs imports
+const error = require("./utils/cli.js").error;
+const getImages = require("./screenshot.js").getImages;
 const fs = require("fs");
 const path = require("path");
 const pdfParse = require("pdf-parse");
 const axios = require("axios");
-require("core-js/proposals/string-replace-all-stage-4");
-const args = require("minimist")(process.argv.slice(2), {
+// require("core-js/proposals/string-replace-all-stage-4");
+const minimist = require("minimist");
+const { analyzeImage } = require("./ocr/textract.js");
+
+const args = minimist(process.argv.slice(2), {
   boolean: ["help"],
-  string: ["file", "deckName", "profile", "chapter"],
+  string: ["file", "deckName", "profile", "chapter", "directory"],
 });
 
+// TODO: validate args, like directory should exist, file should exist. etc
+// const __dirname = path.dirname(new URL(import.meta.url).pathname);
 const BASEPATH = path.resolve(process.env.BASEPATH || __dirname);
 console.log("args ", args);
 if (args.help || process.argv.length <= 2) {
@@ -27,8 +36,47 @@ if (args.help || process.argv.length <= 2) {
         })
         .catch((err) => console.error(err));
   });
+} else if (args.directory /*deckname*/) {
+  const directoryPath = path.resolve(BASEPATH, args.directory);
+  const images = getImages(directoryPath);
+  if (!images?.length) {
+    error("No images found in the directory.");
+  }
+  // console.log(images);
+  // analyzeImage(images[16].path)
+  //   .catch(() => {
+  //     terminateWorker();
+  //   })
+  //   .finally(() => {
+  //     terminateWorker();
+  //   });
+  // TODO: analyze an image, then send the text in prompt to LLM
+  // analyzeImage(images[16].path);
+
+  generateFlashCards([images[16]]);
 } else {
   error("Usage incorrect.", /*showHelp=*/ true);
+}
+
+async function generateFlashCards(images) {
+  const systemPrompt = fs.readFileSync(
+    path.resolve("prompts/singleFlashcardFromImage.md"),
+    "utf8"
+  );
+  if (!systemPrompt) {
+    error("System prompt not found.");
+    return;
+  }
+
+  for (let image of images) {
+    const { slide, path } = image;
+    const { detectedText } = await analyzeImage(path);
+    const completion = await generateStructuredOutput(
+      detectedText,
+      systemPrompt
+    );
+    console.log({ slide, text, completion });
+  }
 }
 
 async function makeRequest(method, body) {
@@ -129,29 +177,6 @@ function toAnkiNotesFormat(questions, deckName) {
   return questions.map((question) =>
     createAnkiNoteTemplate({ question, deckName })
   );
-}
-
-function printHelp() {
-  console.log("pdfToAnki usage:");
-  console.log("");
-  console.log("--help                      print this help");
-  console.log("-, --in                     read file from stdin");
-  console.log("--file={FILENAME}           read file from {FILENAME}");
-  console.log("");
-  console.log("--chapter {CHAPTER}       The chapter to look for.");
-  console.log("");
-  console.log(
-    "--deckName {DECKNAME}       The name of the anki deck to add the notes to."
-  );
-  console.log("");
-}
-function error(err, showHelp = false) {
-  process.exitCode = 1;
-  console.error(err);
-  if (showHelp) {
-    console.log("");
-    printHelp();
-  }
 }
 
 function isIncremental(str, format) {
