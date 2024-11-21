@@ -2,7 +2,8 @@ const OpenAI = require("openai");
 require("dotenv").config();
 const { z } = require("zod");
 const { zodResponseFormat } = require("openai/helpers/zod");
-
+const formatTime = require("./utils/time.js").formatTime;
+const fsPromises = require("fs/promises");
 const prompt1 = `**Prompt:**
 
 You are tasked with analyzing and summarizing a medical text for a nursing student whose first language is not English. The goal is to make the information clear and easy to understand while preserving critical medical terminology to help them recognize and learn these terms. Follow these steps to create a structured response:
@@ -81,9 +82,8 @@ const FlashcardExtraction = z.object({
   category: z.array(z.string()),
 });
 
-// console.log(FlashcardExtraction);
-
 async function generateStructuredOutput(userPrompt, systemPrompt) {
+  // TODO: Do I need to create a new OpenAI instance every time?
   const openai = new OpenAI();
   const completion = await openai.chat.completions.create({
     model: "gpt-4o",
@@ -99,6 +99,22 @@ async function generateStructuredOutput(userPrompt, systemPrompt) {
   return completion;
 }
 
+async function writeCompletionToFile(completion, fileName) {
+  const format = {
+    id: completion.id,
+    created: formatTime(new Date(completion.created * 1000)),
+    model: completion.model,
+    usage: completion?.usage?.total_tokens,
+    choices: completion.choices,
+  };
+  const formattedData = JSON.stringify(format, null, 2);
+  // append the data to a file
+  fsPromises
+    .writeFile(fileName, formattedData, { flag: "a" })
+    .catch(console.error);
+}
+
 module.exports = {
   generateStructuredOutput,
+  writeCompletionToFile,
 };

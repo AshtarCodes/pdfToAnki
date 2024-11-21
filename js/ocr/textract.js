@@ -36,11 +36,12 @@ async function analyzeImage(imagePath) {
       .map((line) => line.Text)
       .join("\n");
 
-    console.log("Extracted Text: \n", detectedText, "\n");
-
+    // console.log("Extracted Text: \n", detectedText, "\n");
+    // TODO: can I improve LLM output by reconstructing tables?
+    // * Con is increase in tokens.
     // Extract table data
     const tables = blocks.filter((block) => block.BlockType === "TABLE");
-    console.log("Detected Tables:", tables?.length);
+    // console.log("Detected Tables:", tables?.length);
 
     return { detectedText };
   } catch (err) {

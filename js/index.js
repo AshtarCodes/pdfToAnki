@@ -5,9 +5,11 @@ const fs = require("fs");
 const path = require("path");
 const pdfParse = require("pdf-parse");
 const minimist = require("minimist");
-const { analyzeImage } = require("./ocr/textract.js");
-const { generateStructuredOutput } = require("./openai.js");
-const { createImageNotes, getImages } = require("./screenshot.js");
+const {
+  createImageNotes,
+  getImages,
+  generateFlashCards,
+} = require("./screenshot.js");
 const { makeRequest } = require("./utils/request.js");
 
 const args = minimist(process.argv.slice(2), {
@@ -61,87 +63,13 @@ if (args.help || process.argv.length <= 2) {
   // };
   // postToAnki([mock], args, createImageNotes);
 
-  generateFlashCards(images)
+  generateFlashCards(images, args.directory)
     .then((flashcards) => {
       postToAnki(flashcards, args, createImageNotes);
     })
     .catch((err) => error(err));
 } else {
   error("Usage incorrect.", /*showHelp=*/ true);
-}
-
-async function generateFlashCards(images) {
-  const systemPrompt = fs.readFileSync(
-    path.resolve("prompts/singleFlashcardFromImage.md"),
-    "utf8"
-  );
-  if (!systemPrompt) {
-    error("System prompt not found.");
-    return;
-  }
-  const flashcards = [];
-
-  for (let image of images) {
-    const { slide, path } = image;
-    const { detectedText } = await analyzeImage(path);
-    const completion = await generateStructuredOutput(
-      detectedText,
-      systemPrompt
-    );
-    const completionContent = completion?.choices?.[0]?.message?.content;
-    if (!completionContent) {
-      console.error(`No completion content found for ${slide} at ${path}.`);
-      continue;
-    }
-
-    const customParser = (key, value) => {
-      if (typeof value === "string") {
-        return value.replace(/\n/g, "<br>"); // Re-add escaped newlines
-      }
-      return value;
-    };
-    const completionJSON = JSON.parse(completionContent, customParser);
-
-    flashcards.push({ content: completionJSON, slide, image });
-
-    console.log({
-      slide,
-      detectedText,
-      completion: completion.choices[0]?.message,
-      usage: completion?.usage?.total_tokens,
-    });
-    const format = {
-      id: completion.id,
-      created: formatTime(new Date(completion.created * 1000)),
-      model: completion.model,
-      usage: completion?.usage?.total_tokens,
-      choices: completion.choices,
-    };
-    writeToFile(
-      JSON.stringify(format, null, 2),
-      `completions/abg/Slide${slide}.json`
-    );
-  }
-  return flashcards;
-}
-
-function formatTime(date) {
-  const formatter = new Intl.DateTimeFormat("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: true,
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
-
-  return formatter.format(date);
-}
-
-function writeToFile(data, fileName) {
-  // append the data to a file
-  fs.writeFileSync(fileName, data, { flag: "a" });
 }
 
 async function postToAnki(questions, args, callback) {
@@ -155,18 +83,23 @@ async function postToAnki(questions, args, callback) {
   if (!permission.result?.permission === "granted") {
     throw new Error("AnkiConnect Permission denied.");
   }
-  // const { result: profileResult } = await makeRequest("POST", {
-  //   action: "getProfiles",
-  //   version,
-  // });
-  // const profileToLoad =
-  //   profileResult.length <= 1
-  //     ? profileResult[0]
-  //     : args.profile &&
-  //       profileResult.find(
-  //         (res) => res.toLowerCase() === args.profile.toLowerCase()
-  //       );
-  const profileToLoad = args.profile.toLowerCase();
+  const { result: profileResult } = await makeRequest("POST", {
+    action: "getProfiles",
+    version,
+  });
+  const profileToLoad =
+    profileResult.length <= 1
+      ? profileResult[0]
+      : args.profile &&
+        profileResult.find(
+          (res) => res.toLowerCase() === args.profile.toLowerCase()
+        );
+
+  if (!profileToLoad) {
+    error("Profile not found.");
+    return;
+  }
+  // const profileToLoad = args.profile.toLowerCase();
   const { result: loadProfileResult } = await makeRequest("POST", {
     action: "loadProfile",
     version,
@@ -175,6 +108,7 @@ async function postToAnki(questions, args, callback) {
   // const {result: syncResult} = await makeRequest('POST', {action: 'sync', version});
   // const notes = toAnkiNotesFormat(questions, deckName);
   const notes = callback(questions, deckName);
+
   const { result: existingDecksResult } = await makeRequest("POST", {
     action: "deckNames",
     version,
