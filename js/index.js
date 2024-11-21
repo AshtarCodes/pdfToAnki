@@ -1,19 +1,14 @@
 #!/usr/bin/env node
-// import { getImages } from "./screenshot.js";
-// import error from ./utils/cli.js using cjs imports
+
 const error = require("./utils/cli.js").error;
 const fs = require("fs");
 const path = require("path");
 const pdfParse = require("pdf-parse");
-// const axios = require("axios");
-// require("core-js/proposals/string-replace-all-stage-4");
 const minimist = require("minimist");
 const { analyzeImage } = require("./ocr/textract.js");
 const { generateStructuredOutput } = require("./openai.js");
 const { createImageNotes, getImages } = require("./screenshot.js");
 const { makeRequest } = require("./utils/request.js");
-
-// axios.defaults.timeout = 10000;
 
 const args = minimist(process.argv.slice(2), {
   boolean: ["help"],
@@ -26,7 +21,7 @@ const BASEPATH = path.resolve(process.env.BASEPATH || __dirname);
 console.log("args ", args);
 if (args.help || process.argv.length <= 2) {
   error(null, /*showHelp=*/ true);
-} else if (args.file && args.deckName && args.chapter) {
+} else if (args.file && args.deckName && args.chapter && args.profile) {
   let filePath = path.join(BASEPATH, args.file);
   fs.readFile(filePath, function (err, contents) {
     if (err) error(err.toString());
@@ -49,16 +44,6 @@ if (args.help || process.argv.length <= 2) {
     return;
   }
   const singleImage = images[16];
-  // console.log(singleImage);
-  // analyzeImage(images[16].path)
-  //   .catch(() => {
-  //     terminateWorker();
-  //   })
-  //   .finally(() => {
-  //     terminateWorker();
-  //   });
-  // TODO: analyze an image, then send the text in prompt to LLM
-  // analyzeImage(images[16].path);
 
   // const customParser = (key, value) => {
   //   if (typeof value === "string") {
@@ -74,13 +59,13 @@ if (args.help || process.argv.length <= 2) {
   //   ),
   //   image: singleImage,
   // };
+  // postToAnki([mock], args, createImageNotes);
+
   generateFlashCards(images)
     .then((flashcards) => {
       postToAnki(flashcards, args, createImageNotes);
     })
     .catch((err) => error(err));
-
-  // postToAnki([mock], args, createImageNotes);
 } else {
   error("Usage incorrect.", /*showHelp=*/ true);
 }

@@ -10,7 +10,7 @@ const client = new TextractClient({
   credentials: fromIni({ profile: "iamadmin-general" }),
 });
 const error = require("../utils/cli.js").error;
-// console.log({ client });
+
 async function analyzeImage(imagePath) {
   try {
     // Read image as binary data
@@ -27,7 +27,6 @@ async function analyzeImage(imagePath) {
     // Extract and process text and table data
     const blocks = response.Blocks;
 
-    // get
     let blockTypes = blocks.map((block) => block.BlockType);
     blockTypes = [...new Set(blockTypes)];
     console.log("Blocks:", blockTypes);
@@ -52,8 +51,8 @@ async function analyzeImage(imagePath) {
 }
 
 // const p = "C:/Users/ashta/Downloads/MONTEFIORE/ABG-images/Slide33.jpg";
-// Provide the path to your image
 // analyzeImage(p);
+
 module.exports = {
   analyzeImage,
 };

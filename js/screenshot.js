@@ -1,15 +1,3 @@
-/**
- *
- * steps
- * 1. get the image
- * 2. form the question on front, and answer on back
- *      a. send image + prompt to LLM
- * 3. put image as answer on back
- *
- *
- *
- */
-
 const fs = require("fs");
 const path = require("path");
 const error = require("./utils/cli.js").error;

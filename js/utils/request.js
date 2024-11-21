@@ -68,20 +68,6 @@ async function makeRequest(method, body) {
   return result;
 }
 
-async function makeFetchRequest(method, body) {
-  // Use the agent with `node-fetch`
-  const response = await fetch("http://127.0.0.1:8765", {
-    method: method,
-    body: JSON.stringify(body),
-    headers: { "Content-Type": "application/json" },
-    agent: httpAgent,
-    // Use the custom HTTP agent
-  });
-
-  const result = await response.json();
-  //   console.log(result);
-}
-
 module.exports = {
   makeRequest,
 };

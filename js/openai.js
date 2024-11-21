@@ -3,11 +3,6 @@ require("dotenv").config();
 const { z } = require("zod");
 const { zodResponseFormat } = require("openai/helpers/zod");
 
-// const { OpenAI } = require("openai");
-
-// const configuration = new Configuration({
-//   apiKey: process.env.OPENAI_API_KEY,
-// });
 const prompt1 = `**Prompt:**
 
 You are tasked with analyzing and summarizing a medical text for a nursing student whose first language is not English. The goal is to make the information clear and easy to understand while preserving critical medical terminology to help them recognize and learn these terms. Follow these steps to create a structured response:

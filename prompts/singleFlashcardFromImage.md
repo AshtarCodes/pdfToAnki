@@ -8,8 +8,7 @@ You are tasked with analyzing and summarizing a medical text to create flashcard
    - Provide a detailed yet simplified explanation of the answer.
    - Include medical terminology in parentheses after simpler terms to connect plain language to technical language.
    - Maintain as much detail as possible to support understanding.
-   - Use formatting to make it easier to read the output. For example, using bullet points where it makes sense to do so.
-   - Use valid html elements to format instead of using markdown syntax. This is extremely important to me. For example, use the "strong" html tag instead of using two asterisks for bold text. Another example, use the "br" tag instead of newlines.
+   - Use valid HTML elements to format the output and make it easier to read the output. This is extremely important to me. Examples include: 1. use the "strong" html tag for bold text. 2. use the "br" tag to put content on a new line.
 
 **Format the response as JSON**:
 
@@ -30,7 +29,7 @@ You are tasked with analyzing and summarizing a medical text to create flashcard
 \`\`\`json
 {
 "category": "ABG Analysis",
-"back": "To check how well oxygen is working in the body (oxygenation efficiency), look at: PaO2 (partial pressure of oxygen in arterial blood): This measures the pressure of oxygen in the blood. Normal range: 80–100 mmHg. SaO2 (arterial oxygen saturation): This shows the percentage of oxygen bound to hemoglobin in the blood. Normal range: 95–100%. At sea level, PaO2 helps determine how oxygen moves from the lungs (alveoli) into the blood and from the blood into the body’s tissues. If PaO2 is below normal levels, the patient may not have enough oxygen in the blood, which is called hypoxemia.",
+"back": "<p>To check how well oxygen is working in the body (oxygenation efficiency), look at:</p> <p>PaO2 (partial pressure of oxygen in arterial blood): This measures the pressure of oxygen in the blood.</p><ul><li>Normal range: 80–100 mmHg.</li></ul> <p>SaO2 (arterial oxygen saturation): This shows the percentage of oxygen bound to hemoglobin in the blood.</p><br><ul><li> Normal range: 95–100%.</li></ul></br> <p>At sea level, PaO2 helps determine how oxygen moves from the lungs (alveoli) into the blood and from the blood into the body’s tissues.</p> <p>If PaO2 is below normal levels, the patient may not have enough oxygen in the blood, which is called hypoxemia.</p>",
 "front": "How do pO2 (PaO2) and oxygen saturation (SaO2) help measure oxygenation in the body, and what are their normal values?"
 }
 \`\`\`
