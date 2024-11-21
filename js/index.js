@@ -2,15 +2,18 @@
 // import { getImages } from "./screenshot.js";
 // import error from ./utils/cli.js using cjs imports
 const error = require("./utils/cli.js").error;
-const getImages = require("./screenshot.js").getImages;
 const fs = require("fs");
 const path = require("path");
 const pdfParse = require("pdf-parse");
-const axios = require("axios");
+// const axios = require("axios");
 // require("core-js/proposals/string-replace-all-stage-4");
 const minimist = require("minimist");
 const { analyzeImage } = require("./ocr/textract.js");
 const { generateStructuredOutput } = require("./openai.js");
+const { createImageNotes, getImages } = require("./screenshot.js");
+const { makeRequest } = require("./utils/request.js");
+
+// axios.defaults.timeout = 10000;
 
 const args = minimist(process.argv.slice(2), {
   boolean: ["help"],
@@ -33,11 +36,11 @@ if (args.help || process.argv.length <= 2) {
           // const notes = toAnkiNotesFormat(questions,args.deckName)
           // fs.writeFile(path.join(__dirname, `Chapter ${args.chapter}.json`), JSON.stringify(questions, null, 4), (err) => console.log(err))
           // console.log('after processing: ',notes[0])
-          return postToAnki(questions, args);
+          return postToAnki(questions, args, toAnkiNotesFormat);
         })
         .catch((err) => console.error(err));
   });
-} else if (args.directory /*deckname*/) {
+} else if (args.directory && args.deckName && args.profile /*deckname*/) {
   const directoryPath = path.resolve(BASEPATH, args.directory);
   const images = getImages(directoryPath);
   //TODO: fix this if check
@@ -57,7 +60,27 @@ if (args.help || process.argv.length <= 2) {
   // TODO: analyze an image, then send the text in prompt to LLM
   // analyzeImage(images[16].path);
 
-  generateFlashCards([singleImage]);
+  // const customParser = (key, value) => {
+  //   if (typeof value === "string") {
+  //     return value.replace(/\n/g, "<br>"); // Re-add escaped newlines
+  //   }
+  //   return value;
+  // };
+  // const mock = {
+  //   slide: 12,
+  //   content: JSON.parse(
+  //     `{"front":"What are PaO2 and SaO2, and what are their normal values for assessing oxygenation in the body?","back":"To assess the efficiency of oxygenation in the body, examine: \\n- **PaO2 (partial pressure of oxygen in arterial blood)**: This measures the pressure of oxygen in the blood. The normal range is **80–100 mmHg** at sea level. It helps in determining oxygen movement from the lungs (alveoli) into the blood and the body's tissues. If PaO2 is below normal, it indicates low oxygen levels in the blood, known as hypoxemia.\\n- **SaO2 (arterial oxygen saturation)**: This indicates the percentage of oxygen bound to hemoglobin in the blood. The normal range is **95–100%**.","category":["ABG Analysis"]}`,
+  //     customParser
+  //   ),
+  //   image: singleImage,
+  // };
+  generateFlashCards(images)
+    .then((flashcards) => {
+      postToAnki(flashcards, args, createImageNotes);
+    })
+    .catch((err) => error(err));
+
+  // postToAnki([mock], args, createImageNotes);
 } else {
   error("Usage incorrect.", /*showHelp=*/ true);
 }
@@ -71,6 +94,7 @@ async function generateFlashCards(images) {
     error("System prompt not found.");
     return;
   }
+  const flashcards = [];
 
   for (let image of images) {
     const { slide, path } = image;
@@ -79,48 +103,63 @@ async function generateFlashCards(images) {
       detectedText,
       systemPrompt
     );
+    const completionContent = completion?.choices?.[0]?.message?.content;
+    if (!completionContent) {
+      console.error(`No completion content found for ${slide} at ${path}.`);
+      continue;
+    }
+
+    const customParser = (key, value) => {
+      if (typeof value === "string") {
+        return value.replace(/\n/g, "<br>"); // Re-add escaped newlines
+      }
+      return value;
+    };
+    const completionJSON = JSON.parse(completionContent, customParser);
+
+    flashcards.push({ content: completionJSON, slide, image });
+
     console.log({
       slide,
       detectedText,
       completion: completion.choices[0]?.message,
       usage: completion?.usage?.total_tokens,
     });
-    writeToFile(JSON.stringify(completion.choices), `Slide${slide}.json`);
+    const format = {
+      id: completion.id,
+      created: formatTime(new Date(completion.created * 1000)),
+      model: completion.model,
+      usage: completion?.usage?.total_tokens,
+      choices: completion.choices,
+    };
+    writeToFile(
+      JSON.stringify(format, null, 2),
+      `completions/abg/Slide${slide}.json`
+    );
   }
+  return flashcards;
+}
+
+function formatTime(date) {
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+
+  return formatter.format(date);
 }
 
 function writeToFile(data, fileName) {
-  // write the data to a file even if the file does not exist, create it
-  fs.writeFile(fileName, data, (err) => {
-    if (err) {
-      error(err);
-      return;
-    }
-  });
+  // append the data to a file
+  fs.writeFileSync(fileName, data, { flag: "a" });
 }
 
-async function makeRequest(method, body) {
-  let result;
-  try {
-    const { data } = await axios({
-      url: "http://localhost:8765/",
-      method,
-      data: body,
-    });
-    result = data;
-  } catch (error) {
-    console.error("Axios error: ", error);
-  } finally {
-    checkForAnkiConnectError(result);
-    return result;
-  }
-}
-function checkForAnkiConnectError(data) {
-  if (data.error) {
-    throw data.error;
-  }
-}
-async function postToAnki(questions, args) {
+async function postToAnki(questions, args, callback) {
   const version = 6;
   const { deckName } = args;
   // request permission, get profiles, load mom's profile, multi request?, addNote / addNotes,
@@ -131,24 +170,26 @@ async function postToAnki(questions, args) {
   if (!permission.result?.permission === "granted") {
     throw new Error("AnkiConnect Permission denied.");
   }
-  const { result: profileResult } = await makeRequest("POST", {
-    action: "getProfiles",
-    version,
-  });
-  const profileToLoad =
-    profileResult.length <= 1
-      ? profileResult[0]
-      : args.profile &&
-        profileResult.find(
-          (res) => res.toLowerCase() === args.profile.toLowerCase()
-        );
+  // const { result: profileResult } = await makeRequest("POST", {
+  //   action: "getProfiles",
+  //   version,
+  // });
+  // const profileToLoad =
+  //   profileResult.length <= 1
+  //     ? profileResult[0]
+  //     : args.profile &&
+  //       profileResult.find(
+  //         (res) => res.toLowerCase() === args.profile.toLowerCase()
+  //       );
+  const profileToLoad = args.profile.toLowerCase();
   const { result: loadProfileResult } = await makeRequest("POST", {
     action: "loadProfile",
     version,
     params: { name: profileToLoad },
   });
   // const {result: syncResult} = await makeRequest('POST', {action: 'sync', version});
-  const notes = toAnkiNotesFormat(questions, deckName);
+  // const notes = toAnkiNotesFormat(questions, deckName);
+  const notes = callback(questions, deckName);
   const { result: existingDecksResult } = await makeRequest("POST", {
     action: "deckNames",
     version,

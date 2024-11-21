@@ -13,20 +13,15 @@
 const fs = require("fs");
 const path = require("path");
 const error = require("./utils/cli.js").error;
-const NOTE_TYPE = "Basic";
-const questionObject = {
-  slide: 0,
-  question: "",
-  answer: "",
-  image: "",
-};
+
+const NOTE_TYPE = "Actually Basic Anki Connect";
 
 function formFlashcards(directoryPath) {
   const images = getImages(directoryPath);
 }
 
 // read image files from a directory provided via the command line
-exports.getImages = function getImages(imageDirPath) {
+function getImages(imageDirPath) {
   if (!fs.existsSync(imageDirPath)) {
     error(`The provided path does not exist: ${imageDirPath}`);
     return;
@@ -37,31 +32,30 @@ exports.getImages = function getImages(imageDirPath) {
     error(`No image files found in the provided directory: ${imageDirPath}`);
     return;
   }
-  const result = images.reduce((acc, image) => {
-    // return an object with the image name and the path to the image, and the slide number. The image name is like so Slide10.png
-    const match = image.match(/\d+/)?.[0];
-    if (!match) {
-      console.log(`No slide number found in the image name: ${image}`);
-      return acc;
-    }
+  const result = images
+    .map((image) => {
+      const match = image.match(/\d+/)?.[0];
+      if (!match) {
+        console.log(`No slide number found in the image name: ${image}`);
+        return null;
+      }
 
-    const slide = parseInt(match);
-    const _path = path.join(imageDirPath, image);
-    const data = packageImage(_path, image);
-    // console.log({ _path, blob: data.imageBlob });
-    const result = {
-      name: image,
-      slide,
-      formData: data.formData,
-      imageBlob: data.imageBlob,
-      path: _path,
-    };
+      const slide = parseInt(match);
+      const _path = path.join(imageDirPath, image);
+      const data = packageImage(_path, image);
 
-    acc[slide] = result;
-    return acc;
-  }, {});
+      return {
+        name: image,
+        slide,
+        formData: data.formData,
+        imageBlob: data.imageBlob,
+        path: _path,
+      };
+    })
+    .filter((image) => image !== null);
+
   return result;
-};
+}
 
 function packageImage(imagePath, imageName) {
   const stats = fs.statSync(imagePath);
@@ -80,11 +74,20 @@ function packageImage(imagePath, imageName) {
   return { formData, imageBlob };
 }
 
-function createAnkiNoteTemplate({ question: questionObj, deckName, tags }) {
-  const { question, choices, answer, answerExtra, feedback } = questionObj;
-  const fields = { Question: question.trim() };
+function createImageNoteTemplate({ card, deckName, tags }) {
+  const { slide, content } = card;
+  const { front, back, category } = content;
+  const fields = {
+    Front: `Slide ${slide}: ${front.trim()}`,
+    Back: back.trim(),
+  };
   // fields.Answer = answer.trim();
-
+  const imagePath = card.image.path;
+  const picture = {
+    filename: path.basename(imagePath),
+    path: imagePath,
+    fields: ["Back"],
+  };
   return {
     deckName: deckName,
     modelName: NOTE_TYPE, //"Anki Connect Basic",
@@ -92,6 +95,18 @@ function createAnkiNoteTemplate({ question: questionObj, deckName, tags }) {
     tags,
     // audio,
     // video,
-    // picture
+    picture,
   };
 }
+
+function createImageNotes(cards, deckName) {
+  return cards.map((card) => {
+    return createImageNoteTemplate({ card, deckName });
+  });
+}
+module.exports = {
+  getImages,
+  formFlashcards,
+  createImageNoteTemplate,
+  createImageNotes,
+};
