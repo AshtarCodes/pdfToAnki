@@ -5,6 +5,8 @@
 
 ## Example Usage
 
+### Images
+
 To generate Anki flashcards from a set of images, run the following command
 `node js/index.js --directory {DIRECTORY} --deckName {DECKNAME}  --profile {PROFILE}`
 
@@ -15,6 +17,22 @@ Where:
 - PROFILE is like `'User 1'`
 
 See `--help` for more information on each flag.
+
+### PDFs
+
+To generate Anki flashcards from a PDF, run the following command
+`node js/index.js --file {FILE} --deckName {DECKNAME}  --profile {PROFILE} --mode multiple`
+
+Where:
+
+- FILE is like: `~/Downloads/respiratory/mechanical-ventilation`
+- DECKNAME is like `RESPIRATORY::MECHANICAL-VENTILATION`
+- PROFILE is like `'User 1'`
+- MODE is one of `"single"` or `"multiple"`
+
+See `--help` for more information on each flag.
+
+This command will generate flashcards from each page of the PDF document, one at a time.
 
 ## Possible Errors
 
