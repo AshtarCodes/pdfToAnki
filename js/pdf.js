@@ -151,28 +151,70 @@ async function pdfToImageBuffer(pdfPath, pageNumber) {
 }
 
 async function createNotesFromPDF(cards, deckName) {
-  const notes = cards.map(async (card) => {
-    const imagePath = await pdfToImageBuffer(card.pagePath, card.pageNumber);
-
-    if (card.cardMode === "multiple") {
-      const content = card.content;
-      const subCards = content.flashcards.map(async (singleCard) => {
-        return await createPDFNoteTemplate({
-          card: { ...card, content: singleCard },
-          deckName,
-          imagePath,
-        });
-      });
-      return await Promise.all(subCards);
+  try {
+    // Validate inputs first
+    if (!Array.isArray(cards) || !deckName) {
+      throw new Error(
+        "Invalid input: cards must be an array and deckName is required"
+      );
     }
 
-    return await createPDFNoteTemplate({ card, deckName, imagePath });
-  });
-  const results = await Promise.all(notes);
+    // Process all cards
+    const notes = await Promise.all(
+      cards.map(async (card) => {
+        try {
+          // Get image buffer first
+          const imagePath = await pdfToImageBuffer(
+            card.pagePath,
+            card.pageNumber
+          );
 
-  //   console.log("createNotesFromPDF:: results: ", results);
+          if (card.cardMode === "multiple") {
+            // Validate multiple card content structure
+            if (
+              !card.content?.flashcards ||
+              !Array.isArray(card.content.flashcards)
+            ) {
+              throw new Error(
+                `Invalid multiple card content structure for card from ${card.pagePath}`
+              );
+            }
 
-  return results.flat();
+            // Process all subcards
+            const subCards = await Promise.all(
+              card.content.flashcards.map((singleCard) =>
+                createPDFNoteTemplate({
+                  card: { ...card, content: singleCard },
+                  deckName,
+                  imagePath,
+                })
+              )
+            );
+            return subCards;
+          }
+
+          // Process single card
+          return await createPDFNoteTemplate({ card, deckName, imagePath });
+        } catch (error) {
+          // Add context to the error
+          throw new Error(
+            `Failed processing card from ${card.pagePath}: ${error.message}`
+          );
+        }
+      })
+    );
+
+    // Flatten and return results
+    return notes.flat();
+  } catch (error) {
+    // Log error for debugging
+    console.error(
+      "createNotesFromPDF:: Failed to create notes from PDF:",
+      error
+    );
+    // Rethrow to maintain atomic behavior
+    throw error;
+  }
 }
 
 // pdfToImageBuffer("sandbox/output/diabetes-critical-care/page-1.pdf", 1).then(
