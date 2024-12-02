@@ -2,6 +2,7 @@ const { exec } = require("child_process");
 const path = require("path");
 const fs = require("fs");
 const sharp = require("sharp");
+const { trackWrite } = require("../utils/fs-helpers.js");
 // const pLimit = require("p-limit");
 // const imageUploadLimit = pLimit(10);
 const error = require("../utils/cli.js").error;
@@ -21,11 +22,13 @@ async function compressImage(
       .resize({ maxWidth, maxHeight, fit: "inside", withoutEnlargement: true })
       .toBuffer();
 
-    fs.writeFile(outputPath, compressedImage, (err) => {
-      if (err) {
-        throw err;
-      }
-    });
+    trackWrite(
+      fs.writeFile(outputPath, compressedImage, (err) => {
+        if (err) {
+          throw err;
+        }
+      })
+    );
 
     return compressedImage;
   } catch (error) {

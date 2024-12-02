@@ -20,7 +20,16 @@ async function createDirIfMissing(path) {
   }
 }
 
+function trackWrite(writePromise) {
+  process._agentFlash.pendingWrites.add(writePromise);
+  writePromise.finally(() =>
+    process._agentFlash.pendingWrites.delete(writePromise)
+  );
+  return writePromise;
+}
+
 module.exports = {
   checkExists,
   createDirIfMissing,
+  trackWrite,
 };

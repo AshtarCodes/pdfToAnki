@@ -2,7 +2,7 @@ const fs = require("fs");
 const fsPromises = require("fs/promises");
 const path = require("path");
 const { PDFDocument } = require("pdf-lib");
-const { checkExists } = require("./fs-helpers.js");
+const { checkExists, trackWrite } = require("./fs-helpers.js");
 
 async function splitPDF(filePath, outputDir) {
   try {
@@ -36,10 +36,14 @@ async function splitPDF(filePath, outputDir) {
         await fsPromises.mkdir(outputDirName, { recursive: true });
       }
 
-      //   fs.writeFile(outputFilePath, pdfBytes);
-      fsPromises.writeFile(outputFilePath, pdfBytes).catch(console.error);
-
-      console.log(`Saved: ${outputFilePath}`);
+      trackWrite(
+        fsPromises
+          .writeFile(outputFilePath, pdfBytes)
+          .then((res) =>
+            console.log(`Saved single page PDF: ${outputFilePath}`)
+          )
+          .catch(console.error)
+      );
 
       const doc = {
         pdf: pdfBytes,

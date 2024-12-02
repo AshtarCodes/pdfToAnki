@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+require("./utils/process.js");
 const error = require("./utils/cli.js").error;
 const fs = require("fs");
 const path = require("path");
@@ -38,6 +39,7 @@ if (args.help || process.argv.length <= 2) {
     error("The provided path is not a file.");
     return;
   }
+
   const mode = args.mode || "single";
   generateFlashCardsFromPdf({ pdfPath: filePath, mode })
     .then((flashcards) => {

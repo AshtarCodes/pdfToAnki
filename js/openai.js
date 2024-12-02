@@ -5,7 +5,11 @@ const { z } = require("zod");
 const { zodResponseFormat } = require("openai/helpers/zod");
 const formatTime = require("./utils/time.js").formatTime;
 const fsPromises = require("fs/promises");
-const { createDirIfMissing, checkExists } = require("./utils/fs-helpers.js");
+const {
+  createDirIfMissing,
+  checkExists,
+  trackWrite,
+} = require("./utils/fs-helpers.js");
 const { error } = require("./utils/cli.js");
 const prompt1 = `**Prompt:**
 
@@ -119,7 +123,7 @@ async function generateStructuredOutput(
     });
     return completion;
   } catch (err) {
-    return error(
+    error(
       `Error generating structured output: ${err.message}. Stack: ${err.stack}`
     );
   } finally {
@@ -157,9 +161,11 @@ async function writeCompletionToFile(completion, fileName) {
   await createDirIfMissing(outputDirName);
 
   // append the data to a file
-  fsPromises
-    .writeFile(fileName, formattedData, { flag: "a" })
-    .catch(console.error);
+  trackWrite(
+    fsPromises
+      .writeFile(fileName, formattedData, { flag: "a" })
+      .catch(console.error)
+  );
 }
 
 async function extractContentFromCompletion(

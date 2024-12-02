@@ -6,7 +6,11 @@ const fs = require("fs");
 const fsPromises = require("fs/promises");
 const path = require("path");
 const { fromIni } = require("@aws-sdk/credential-providers");
-const { createDirIfMissing, checkExists } = require("../utils/fs-helpers.js");
+const {
+  createDirIfMissing,
+  checkExists,
+  trackWrite,
+} = require("../utils/fs-helpers.js");
 const client = new TextractClient({
   region: "us-east-1",
   credentials: fromIni({ profile: "iamadmin-general" }),
@@ -83,9 +87,11 @@ async function analyzeSinglePDF(pdfDoc) {
       // if the directories do not exist, recursively create them
       await createDirIfMissing(outputDir);
 
-      fsPromises.writeFile(
-        path.join(fileName),
-        JSON.stringify(response, null, 2)
+      trackWrite(
+        fsPromises.writeFile(
+          path.join(fileName),
+          JSON.stringify(response, null, 2)
+        )
       );
     } else if (reuse === true) {
       response = JSON.parse(await fsPromises.readFile(fileName, "utf8"));

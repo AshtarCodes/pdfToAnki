@@ -43,4 +43,4 @@ This command will generate flashcards from each page of the PDF document, one at
 
 node js/index.js --file "~/Downloads/montefiore-pdf-12-2024/diabetes-critical-care.pdf" --deckName "MONTEFIORE::DIABETES" --profile "silis anki" --mode multiple
 
-node js/index.js --file "~/Downloads/montefiore-pdf-12-2024/gi-liver-pancreas.pdf" --deckName "MONTEFIORE::GI-LIVER-PANCREAS" --profile "silis anki" --mode multiple
+node js/index.js --file "~/Downloads/montefiore-pdf-12-2024/hemodynamic-monitoring.pdf" --deckName "MONTEFIORE::HEMODYNAMIC-MONITORING" --profile "silis anki" --mode multiple
