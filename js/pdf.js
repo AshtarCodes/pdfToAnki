@@ -15,11 +15,30 @@ const { createDirIfMissing } = require("./utils/fs-helpers.js");
 //TODO: provide as cli command
 const NOTE_TYPE = "Actually Basic Anki Connect";
 
-async function generateFlashCardsFromPdf(pdfPath, outputDir) {
-  const systemPrompt = await fsPromises.readFile(
-    path.resolve("prompts/singleFlashcardFromImage.md"),
-    "utf8"
-  );
+async function getSystemPrompt(mode) {
+  let systemPrompt;
+
+  if (mode === "single") {
+    systemPrompt = await fsPromises.readFile(
+      path.resolve("prompts/singleFlashcardFromImage.md"),
+      "utf8"
+    );
+  } else if (mode === "multiple") {
+    systemPrompt = await fsPromises.readFile(
+      path.resolve("prompts/flashcardsFromPDF.md"),
+      "utf8"
+    );
+  }
+  return systemPrompt;
+}
+
+async function generateFlashCardsFromPdf({
+  pdfPath,
+  mode = "single",
+  outputDir,
+}) {
+  const systemPrompt = await getSystemPrompt(mode);
+
   if (!systemPrompt) {
     error("System prompt not found.");
     return;
@@ -41,7 +60,8 @@ async function generateFlashCardsFromPdf(pdfPath, outputDir) {
       completion = await generateStructuredOutput(
         pdfText,
         systemPrompt,
-        completionFileName
+        completionFileName,
+        mode
       );
 
       const completionJSON = await extractContentFromCompletion(
@@ -54,6 +74,7 @@ async function generateFlashCardsFromPdf(pdfPath, outputDir) {
         pageNumber: page.pageNumber,
         originalName: page.originalName,
         pagePath: page.pagePath,
+        cardMode: mode,
       };
     } catch (err) {
       return error(`Error generating flashcards from PDF: ${err.message}`);
@@ -69,7 +90,7 @@ async function generateFlashCardsFromPdf(pdfPath, outputDir) {
   return flashcards;
 }
 
-async function createPDFNoteTemplate({ card, deckName, tags }) {
+async function createPDFNoteTemplate({ card, deckName, tags, imagePath }) {
   const { pageNumber, content, pagePath, originalName } = card;
   const { front, back } = content;
   const fields = {
@@ -77,15 +98,14 @@ async function createPDFNoteTemplate({ card, deckName, tags }) {
     Back: back.trim(),
   };
   // fields.Answer = answer.trim();
-  const pdfPath = pagePath;
-  const imagePath = await pdfToImageBuffer(pdfPath, pageNumber);
+  //   const imagePath = await pdfToImageBuffer(pagePath, pageNumber);
   const picture = {
-    filename: path.basename(pdfPath, ".pdf") + ".png",
+    filename: path.basename(pagePath, ".pdf") + ".png",
     path: imagePath,
     // data: imageData,
     fields: ["Back"],
   };
-  console.log("picture ", picture.filename);
+
   return {
     deckName: deckName,
     modelName: NOTE_TYPE, //"Anki Connect Basic",
@@ -100,8 +120,7 @@ async function createPDFNoteTemplate({ card, deckName, tags }) {
 // * tested
 async function pdfToImageBuffer(pdfPath, pageNumber) {
   const dirName = path.dirname(path.normalize(pdfPath)).split(path.sep).at(-1);
-  console.log("image dirName: ", dirName);
-  console.log(path.sep);
+
   const outputDir = path.join(`sandbox/pdf-temp-images/${dirName}`);
   await createDirIfMissing(outputDir);
 
@@ -133,9 +152,27 @@ async function pdfToImageBuffer(pdfPath, pageNumber) {
 
 async function createNotesFromPDF(cards, deckName) {
   const notes = cards.map(async (card) => {
-    return await createPDFNoteTemplate({ card, deckName });
+    const imagePath = await pdfToImageBuffer(card.pagePath, card.pageNumber);
+
+    if (card.cardMode === "multiple") {
+      const content = card.content;
+      const subCards = content.flashcards.map(async (singleCard) => {
+        return await createPDFNoteTemplate({
+          card: { ...card, content: singleCard },
+          deckName,
+          imagePath,
+        });
+      });
+      return await Promise.all(subCards);
+    }
+
+    return await createPDFNoteTemplate({ card, deckName, imagePath });
   });
-  return Promise.all(notes);
+  const results = await Promise.all(notes);
+
+  //   console.log("createNotesFromPDF:: results: ", results);
+
+  return results.flat();
 }
 
 // pdfToImageBuffer("sandbox/output/diabetes-critical-care/page-1.pdf", 1).then(

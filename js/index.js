@@ -5,6 +5,7 @@ const fs = require("fs");
 const path = require("path");
 const pdfParse = require("pdf-parse");
 const minimist = require("minimist");
+const os = require("os");
 const {
   createImageNotes,
   getImages,
@@ -15,17 +16,17 @@ const { generateFlashCardsFromPdf, createNotesFromPDF } = require("./pdf.js");
 
 const args = minimist(process.argv.slice(2), {
   boolean: ["help"],
-  string: ["file", "deckName", "profile", "chapter", "directory"],
+  string: ["file", "deckName", "profile", "chapter", "directory", "mode"],
 });
 
 // TODO: validate args, like directory should exist, file should exist. etc
 // const __dirname = path.dirname(new URL(import.meta.url).pathname);
-const BASEPATH = path.resolve(process.env.BASEPATH || __dirname);
+const BASEPATH = path.resolve(process.env.BASEPATH || process.cwd());
 console.log("args ", args);
 if (args.help || process.argv.length <= 2) {
   error(null, /*showHelp=*/ true);
 } else if (args.file && args.profile && args.deckName /* && args.chapter */) {
-  let filePath = path.resolve(args.file);
+  let filePath = resolvePath(args.file);
 
   if (!fs.existsSync(filePath)) {
     error(`The provided path does not exist: ${filePath}`);
@@ -37,10 +38,10 @@ if (args.help || process.argv.length <= 2) {
     error("The provided path is not a file.");
     return;
   }
-
-  generateFlashCardsFromPdf(filePath)
+  const mode = args.mode || "single";
+  generateFlashCardsFromPdf({ pdfPath: filePath, mode })
     .then((flashcards) => {
-      console.log(flashcards);
+      // console.log("after generating flashcards: ", flashcards);
       postToAnki(flashcards, args, createNotesFromPDF);
       return;
     })
@@ -94,6 +95,16 @@ if (args.help || process.argv.length <= 2) {
     .catch((err) => error(err));
 } else {
   error("Usage incorrect.", /*showHelp=*/ true);
+}
+
+function resolvePath(inputPath) {
+  // Handle tilde for home directory
+  if (inputPath.startsWith("~/")) {
+    inputPath = path.join(os.homedir(), inputPath.slice(2));
+  }
+
+  // Then resolve any remaining relative path components
+  return path.resolve(process.cwd(), inputPath);
 }
 
 async function postToAnki(questions, args, callback) {

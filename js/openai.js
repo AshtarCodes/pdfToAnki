@@ -82,14 +82,20 @@ You are tasked with analyzing and summarizing a medical text for a nursing stude
 const FlashcardExtraction = z.object({
   front: z.string(),
   back: z.string(),
-  category: z.array(z.string()),
+  // category: z.array(z.string()),
+});
+
+const ManyFlashCardExtractions = z.object({
+  flashcards: z.array(FlashcardExtraction),
 });
 
 async function generateStructuredOutput(
   userPrompt,
   systemPrompt,
-  completionFileName
+  completionFileName,
+  cardsPerFile = "single"
 ) {
+  let responseFormat = getResponseFormat(cardsPerFile);
   let completion;
   let reused = false;
   if (completionFileName && (await checkExists(completionFileName))) {
@@ -109,18 +115,30 @@ async function generateStructuredOutput(
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
       ],
-      response_format: zodResponseFormat(
-        FlashcardExtraction,
-        "flash_card_extraction"
-      ),
+      response_format: responseFormat,
     });
     return completion;
   } catch (err) {
-    return error("Error generating structured output:", err);
+    return error(
+      `Error generating structured output: ${err.message}. Stack: ${err.stack}`
+    );
   } finally {
     if (completion && !reused) {
       writeCompletionToFile(completion, completionFileName); // `completions/${imageDirName}/Slide${slide}.json`
     }
+  }
+}
+
+function getResponseFormat(mode) {
+  if (mode === "single") {
+    return zodResponseFormat(FlashcardExtraction, "flash_card_extraction");
+  } else if (mode === "multiple") {
+    return zodResponseFormat(
+      ManyFlashCardExtractions,
+      "many_flash_card_extraction"
+    );
+  } else {
+    throw new Error("Invalid cardsPerSlide value.");
   }
 }
 

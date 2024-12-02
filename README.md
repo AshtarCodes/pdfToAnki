@@ -1,7 +1,7 @@
 # Getting started
-1. You will need an AWS Credentials Profile set up on your machine. As an alternative, you can export your AWS public and secret access keys in your environment prior to running the app. These are used to query the Amazon Textract API. 
-1. Copy the .env.example and paste it into a '.env. file. You will need to provide your own OPENAI API Token here. Visit OPENAI to learn more on how to do that.
 
+1. You will need an AWS Credentials Profile set up on your machine. As an alternative, you can export your AWS public and secret access keys in your environment prior to running the app. These are used to query the Amazon Textract API.
+1. Copy the .env.example and paste it into a '.env. file. You will need to provide your own OPENAI API Token here. Visit OPENAI to learn more on how to do that.
 
 ## Example Usage
 
@@ -23,4 +23,6 @@ See `--help` for more information on each flag.
 - set keepAlive to false
 - disable firewall on your machine
 
-node js/index.js --file "sandbox/input/card-test.pdf" --deckName "pdf-test" --profile "silis anki"
+node js/index.js --file "~/Downloads/montefiore-pdf-12-2024/diabetes-critical-care.pdf" --deckName "MONTEFIORE::DIABETES" --profile "silis anki" --mode multiple
+
+node js/index.js --file "~/Downloads/montefiore-pdf-12-2024/gi-liver-pancreas.pdf" --deckName "MONTEFIORE::GI-LIVER-PANCREAS" --profile "silis anki" --mode multiple
