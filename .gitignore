@@ -1,7 +1,8 @@
 *.pdf
-/pptx/**
-/completions/**
-/notes/**
+pptx/
+completions/
+notes/
+sandbox/
 # Logs
 logs
 *.log

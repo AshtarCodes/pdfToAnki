@@ -1,9 +1,12 @@
 const OpenAI = require("openai");
 require("dotenv").config();
+const path = require("path");
 const { z } = require("zod");
 const { zodResponseFormat } = require("openai/helpers/zod");
 const formatTime = require("./utils/time.js").formatTime;
 const fsPromises = require("fs/promises");
+const { createDirIfMissing, checkExists } = require("./utils/fs-helpers.js");
+const { error } = require("./utils/cli.js");
 const prompt1 = `**Prompt:**
 
 You are tasked with analyzing and summarizing a medical text for a nursing student whose first language is not English. The goal is to make the information clear and easy to understand while preserving critical medical terminology to help them recognize and learn these terms. Follow these steps to create a structured response:
@@ -82,21 +85,43 @@ const FlashcardExtraction = z.object({
   category: z.array(z.string()),
 });
 
-async function generateStructuredOutput(userPrompt, systemPrompt) {
+async function generateStructuredOutput(
+  userPrompt,
+  systemPrompt,
+  completionFileName
+) {
+  let completion;
+  let reused = false;
+  if (completionFileName && (await checkExists(completionFileName))) {
+    completion = JSON.parse(await fsPromises.readFile(completionFileName));
+    reused = true;
+    console.info(`Reusing completion from ${completionFileName}`);
+    return completion;
+  }
+
   // TODO: Do I need to create a new OpenAI instance every time?
-  const openai = new OpenAI();
-  const completion = await openai.chat.completions.create({
-    model: "gpt-4o",
-    messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userPrompt },
-    ],
-    response_format: zodResponseFormat(
-      FlashcardExtraction,
-      "flash_card_extraction"
-    ),
-  });
-  return completion;
+  try {
+    const openai = new OpenAI();
+    console.info("Generating structured output...");
+    completion = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      response_format: zodResponseFormat(
+        FlashcardExtraction,
+        "flash_card_extraction"
+      ),
+    });
+    return completion;
+  } catch (err) {
+    return error("Error generating structured output:", err);
+  } finally {
+    if (completion && !reused) {
+      writeCompletionToFile(completion, completionFileName); // `completions/${imageDirName}/Slide${slide}.json`
+    }
+  }
 }
 
 async function writeCompletionToFile(completion, fileName) {
@@ -108,13 +133,42 @@ async function writeCompletionToFile(completion, fileName) {
     choices: completion.choices,
   };
   const formattedData = JSON.stringify(format, null, 2);
+
+  const outputDirName = path.dirname(fileName);
+
+  await createDirIfMissing(outputDirName);
+
   // append the data to a file
   fsPromises
     .writeFile(fileName, formattedData, { flag: "a" })
     .catch(console.error);
 }
 
+async function extractContentFromCompletion(
+  completion,
+  { pageNumber, pagePath }
+) {
+  const completionContent = completion?.choices?.[0]?.message?.content;
+  if (!completionContent) {
+    console.error(
+      `No completion content found for page ${pageNumber} at ${pagePath}.`
+    );
+    return;
+  }
+
+  const customParser = (key, value) => {
+    if (typeof value === "string") {
+      return value.replace(/\n/g, "<br>"); // Re-add escaped newlines
+    }
+    return value;
+  };
+  const completionJSON = JSON.parse(completionContent, customParser);
+
+  return completionJSON;
+}
+
 module.exports = {
   generateStructuredOutput,
   writeCompletionToFile,
+  extractContentFromCompletion,
 };

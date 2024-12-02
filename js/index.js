@@ -11,6 +11,7 @@ const {
   generateFlashCards,
 } = require("./screenshot.js");
 const { makeRequest } = require("./utils/request.js");
+const { generateFlashCardsFromPdf, createNotesFromPDF } = require("./pdf.js");
 
 const args = minimist(process.argv.slice(2), {
   boolean: ["help"],
@@ -23,20 +24,43 @@ const BASEPATH = path.resolve(process.env.BASEPATH || __dirname);
 console.log("args ", args);
 if (args.help || process.argv.length <= 2) {
   error(null, /*showHelp=*/ true);
-} else if (args.file && args.deckName && args.chapter && args.profile) {
-  let filePath = path.join(BASEPATH, args.file);
-  fs.readFile(filePath, function (err, contents) {
-    if (err) error(err.toString());
-    else
-      processFile(contents)
-        .then((questions) => {
-          // const notes = toAnkiNotesFormat(questions,args.deckName)
-          // fs.writeFile(path.join(__dirname, `Chapter ${args.chapter}.json`), JSON.stringify(questions, null, 4), (err) => console.log(err))
-          // console.log('after processing: ',notes[0])
-          return postToAnki(questions, args, toAnkiNotesFormat);
-        })
-        .catch((err) => console.error(err));
-  });
+} else if (args.file && args.profile && args.deckName /* && args.chapter */) {
+  let filePath = path.resolve(args.file);
+
+  if (!fs.existsSync(filePath)) {
+    error(`The provided path does not exist: ${filePath}`);
+    return;
+  }
+
+  const isFile = fs.statSync(filePath).isFile();
+  if (!isFile) {
+    error("The provided path is not a file.");
+    return;
+  }
+
+  generateFlashCardsFromPdf(filePath)
+    .then((flashcards) => {
+      console.log(flashcards);
+      postToAnki(flashcards, args, createNotesFromPDF);
+      return;
+    })
+    .catch((err) => error(err));
+
+  /**
+   * * OLD CODE TO PARSE PDF OF A SPECIFIC FORMAT
+   */
+  // fs.readFile(filePath, function (err, contents) {
+  //   if (err) error(err.toString());
+  //   else
+  //     processFile(contents)
+  //       .then((questions) => {
+  //         // const notes = toAnkiNotesFormat(questions,args.deckName)
+  //         // fs.writeFile(path.join(__dirname, `Chapter ${args.chapter}.json`), JSON.stringify(questions, null, 4), (err) => console.log(err))
+  //         // console.log('after processing: ',notes[0])
+  //         return postToAnki(questions, args, toAnkiNotesFormat);
+  //       })
+  //       .catch((err) => console.error(err));
+  // });
 } else if (args.directory && args.deckName && args.profile /*deckname*/) {
   const directoryPath = path.resolve(BASEPATH, args.directory);
   const images = getImages(directoryPath);
@@ -107,7 +131,7 @@ async function postToAnki(questions, args, callback) {
   });
   // const {result: syncResult} = await makeRequest('POST', {action: 'sync', version});
   // const notes = toAnkiNotesFormat(questions, deckName);
-  const notes = callback(questions, deckName);
+  const notes = await callback(questions, deckName);
 
   const { result: existingDecksResult } = await makeRequest("POST", {
     action: "deckNames",

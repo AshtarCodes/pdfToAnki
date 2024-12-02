@@ -17,3 +17,5 @@ See `--help` for more information on each flag.
 
 - set keepAlive to false
 - disable firewall on your machine
+
+node js/index.js --file "sandbox/input/card-test.pdf" --deckName "pdf-test" --profile "silis anki"
