@@ -11,6 +11,8 @@ const {
 const { splitPDF } = require("./utils/pdf.js");
 const pdf2pic = require("pdf2pic");
 const { createDirIfMissing } = require("./utils/fs-helpers.js");
+const os = require("os");
+const { APP_TEMP_DIR } = require("./utils/constants.js");
 
 //TODO: provide as cli command
 const NOTE_TYPE = "Actually Basic Anki Connect";
@@ -45,10 +47,7 @@ async function generateFlashCardsFromPdf({
   }
   // read pdf
   //   const dataBuffer = await fsPromises.readFile(pdfPath);
-  const pdfPages = await splitPDF(
-    pdfPath,
-    `sandbox/split-pdfs` /* outputDir */
-  );
+  const pdfPages = await splitPDF(pdfPath, APP_TEMP_DIR /* outputDir */);
 
   // extract text using textract
   const promises = pdfPages.map(async (page) => {
@@ -97,10 +96,9 @@ async function createPDFNoteTemplate({ card, deckName, tags, imagePath }) {
     Front: `Page ${pageNumber}: ${front.trim()}`,
     Back: back.trim(),
   };
-  // fields.Answer = answer.trim();
-  //   const imagePath = await pdfToImageBuffer(pagePath, pageNumber);
+
   const picture = {
-    filename: path.basename(pagePath, ".pdf") + ".png",
+    filename: originalName + path.basename(pagePath, ".pdf") + ".png", // diabetes-page-1.png
     path: imagePath,
     // data: imageData,
     fields: ["Back"],
@@ -118,10 +116,9 @@ async function createPDFNoteTemplate({ card, deckName, tags, imagePath }) {
 }
 
 // * tested
-async function pdfToImageBuffer(pdfPath, pageNumber) {
-  const dirName = path.dirname(path.normalize(pdfPath)).split(path.sep).at(-1);
-
-  const outputDir = path.join(`sandbox/pdf-temp-images/${dirName}`);
+async function pdfToImageBuffer(pdfPath, pageNumber, originalFileName) {
+  const dirName = originalFileName;
+  const outputDir = path.join(`${APP_TEMP_DIR}/${dirName}`); // /tmp/agent-flash/diabetes
   await createDirIfMissing(outputDir);
 
   const options = {
@@ -131,9 +128,8 @@ async function pdfToImageBuffer(pdfPath, pageNumber) {
     quality: 100,
     height: 3300,
     width: 2550,
-    // width: 2000,
-    // height: 2000,
-    saveFilename: path.join(`${outputDir}/page-${pageNumber}`), // Still required but won't be used
+    saveFilename: `page-${pageNumber}`,
+    savePath: outputDir,
   };
 
   const convert = pdf2pic.fromPath(pdfPath, options);
@@ -146,7 +142,12 @@ async function pdfToImageBuffer(pdfPath, pageNumber) {
     // return pageData.buffer;
   } catch (error) {
     console.error("Error converting PDF to image:", error);
-    throw error;
+    console.error("PDF Path:", pdfPath);
+    console.error("Page Number:", pageNumber);
+    throw new Error(
+      `pdfToImageBuffer:: Error converting pdf to image at ${pdfPath}, page ${pageNumber}: ${error.message}`,
+      { cause: error }
+    );
   }
 }
 
@@ -166,7 +167,8 @@ async function createNotesFromPDF(cards, deckName) {
           // Get image buffer first
           const imagePath = await pdfToImageBuffer(
             card.pagePath,
-            card.pageNumber
+            card.pageNumber,
+            card.originalName
           );
 
           if (card.cardMode === "multiple") {
@@ -198,7 +200,8 @@ async function createNotesFromPDF(cards, deckName) {
         } catch (error) {
           // Add context to the error
           throw new Error(
-            `Failed processing card from ${card.pagePath}: ${error.message}`
+            `Failed processing card from ${card.pagePath}: ${error.message}`,
+            { cause: error }
           );
         }
       })
@@ -207,17 +210,15 @@ async function createNotesFromPDF(cards, deckName) {
     // Flatten and return results
     return notes.flat();
   } catch (error) {
-    // Log error for debugging
-    console.error(
-      "createNotesFromPDF:: Failed to create notes from PDF:",
-      error
-    );
     // Rethrow to maintain atomic behavior
-    throw error;
+    throw new Error(
+      `createNotesFromPDF:: Failed to create notes from PDF: ${error.message}`,
+      { cause: error }
+    );
   }
 }
 
-// pdfToImageBuffer("sandbox/output/diabetes-critical-care/page-1.pdf", 1).then(
+// pdfToImageBuffer("sandbox/split-pdfs/neuro-assessment/page-1.pdf", 1).then(
 //   (res) => console.log("fulfilled: ", res !== undefined),
 //   (rej) => console.log("rejected: ", rej)
 // );

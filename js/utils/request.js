@@ -3,19 +3,20 @@ const axios = require("axios");
 const http = require("http");
 const error = require("./cli.js").error;
 const checkForAnkiConnectError = require("./anki.js").checkForAnkiConnectError;
+const timeout = 1000 * 15;
 // Create a custom HTTP agent
 const httpAgent = new http.Agent({
   keepAlive: false, // Enable socket keep-alive
   //   keepAliveMsecs: 3000, // Time to keep sockets alive (ms)
   //   maxSockets: 10, // Maximum number of sockets per host
-  timeout: 10000, // Socket timeout (ms)
+  timeout, // Socket timeout (ms)
 });
 // Configure the custom agent
 const httpsAgent = new https.Agent({
   keepAlive: false,
   //   keepAliveMsecs: 3000,
   //   maxSockets: 10,
-  timeout: 10000,
+  timeout,
 });
 
 /**
@@ -37,7 +38,7 @@ async function makeRequest(method, body) {
       headers: { "Content-Type": "application/json", Connection: "close" },
       httpsAgent: httpsAgent,
       httpAgent: httpAgent,
-      timeout: 5000,
+      timeout,
       proxy: false,
     });
     result = _result.data ?? {

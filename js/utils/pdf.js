@@ -2,7 +2,7 @@ const fs = require("fs");
 const fsPromises = require("fs/promises");
 const path = require("path");
 const { PDFDocument } = require("pdf-lib");
-const { checkExists, trackWrite } = require("./fs-helpers.js");
+const { trackWrite, createDirIfMissing } = require("./fs-helpers.js");
 
 async function splitPDF(filePath, outputDir) {
   try {
@@ -28,13 +28,11 @@ async function splitPDF(filePath, outputDir) {
 
       const pageNum = i + 1;
       // Save the page to a file
-      const subDirName = path.basename(filePath, ".pdf");
-      const outputDirName = path.join(outputDir, subDirName);
-      const outputFilePath = path.join(outputDirName, `page-${pageNum}.pdf`);
+      const subDirName = path.basename(filePath, ".pdf"); // diabetes.pdf -> file
+      const outputDirName = path.join(outputDir, subDirName); // /tmp/diabetes
+      const outputFilePath = path.join(outputDirName, `page-${pageNum}.pdf`); // /tmp/diabetes/page-1.pdf
 
-      if (!(await checkExists(outputDirName))) {
-        await fsPromises.mkdir(outputDirName, { recursive: true });
-      }
+      await createDirIfMissing(outputDirName);
 
       trackWrite(
         fsPromises
