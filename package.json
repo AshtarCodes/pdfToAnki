@@ -1,13 +1,13 @@
 {
-  "name": "pdftoanki",
+  "name": "agent-flash",
   "version": "1.0.0",
-  "description": "",
+  "description": "Create Anki cards in a flash! 🚀",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
-  "author": "",
+  "author": "Ashtar S. Paniagua",
   "license": "ISC",
   "dependencies": {
     "@aws-sdk/client-rekognition": "^3.696.0",
