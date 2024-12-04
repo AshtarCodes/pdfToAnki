@@ -56,8 +56,8 @@ async function processImageUploads(uploadedImagesDir, outputDir) {
     /**
      * * Profile end
      */
-    // const usageEnd = process.resourceUsage();
     // * Profile results. For 33 small jpgs, 9ms CPU time, 110MB max RSS
+    // const usageEnd = process.resourceUsage();
     // console.log(
     //   "User CPU time (ms):",
     //   (usageEnd.userCPUTime - usageStart.userCPUTime) / 1e6

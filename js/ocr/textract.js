@@ -14,6 +14,7 @@ const {
 const client = new TextractClient({
   region: "us-east-1",
   credentials: fromIni({ profile: "iamadmin-general" }),
+  maxAttempts: 5,
 });
 const error = require("../utils/cli.js").error;
 
